@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NormalizationService } from '../normalization/normalization.service';
@@ -26,6 +26,8 @@ type CompensationWithRelations = Prisma.CompensationGetPayload<{
 
 @Injectable()
 export class CompensationService {
+  private readonly logger = new Logger(CompensationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly normalization: NormalizationService,
@@ -143,6 +145,9 @@ export class CompensationService {
 
     const existing = await tx.compensation.findUnique({ where: { fingerprint } });
     if (existing) {
+      this.logger.warn(
+        `Duplicate record detected for ${normalizedCompanyName}/${normalizedRoleName}/${normalizedLevelName}`,
+      );
       throw new ConflictException('Duplicate compensation record');
     }
 

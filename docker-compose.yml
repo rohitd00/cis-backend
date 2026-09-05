@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rohit
+      POSTGRES_PASSWORD: radheshyam
+      POSTGRES_DB: compensation_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - cis_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  cis_postgres_data:

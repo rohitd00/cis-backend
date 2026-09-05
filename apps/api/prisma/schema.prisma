@@ -1,0 +1,145 @@
+// Compensation Intelligence System — Prisma schema
+// See docs/data-model.md for the reasoning behind these design choices.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A company observed in compensation data.
+/// `normalizedName` is the deterministic key used for duplicate detection
+/// (see CompanyNormalizationService) — "Google", "GOOGLE" and "Google, Inc."
+/// all resolve to the same Company row via this field.
+model Company {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique
+  slug           String   @unique
+  website        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  levels        Level[]
+  compensations Compensation[]
+
+  @@index([normalizedName])
+  @@map("companies")
+}
+
+/// A job role/title. Normalized the same way as Company, but deliberately
+/// NOT semantically merged (e.g. "Software Engineer" != "Backend Engineer").
+model Role {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique
+  slug           String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  compensations Compensation[]
+
+  @@index([normalizedName])
+  @@map("roles")
+}
+
+/// A seniority level, scoped to a single company.
+/// Levels are intentionally NOT global: "Google L4", "Microsoft 62" and
+/// "Amazon SDE II" are different rows even if their raw labels collided,
+/// because two companies' levels are not guaranteed to mean the same thing.
+/// `seniorityRank` is an optional, manually-curated approximation used only
+/// for coarse cross-company sorting — never for equivalence claims.
+model Level {
+  id             String  @id @default(cuid())
+  companyId      String
+  name           String
+  normalizedName String
+  seniorityRank  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  compensations Compensation[]
+
+  @@unique([companyId, normalizedName])
+  @@index([companyId])
+  @@map("levels")
+}
+
+/// A geographic location. Region/city are optional (country-only records are
+/// valid), but normalized fields default to "" rather than null so the
+/// composite unique constraint behaves correctly (Postgres treats NULL as
+/// distinct in unique indexes, which would otherwise let duplicate
+/// country-only rows slip through).
+model Location {
+  id                String  @id @default(cuid())
+  country           String
+  region            String?
+  city              String?
+  normalizedCountry String
+  normalizedRegion  String  @default("")
+  normalizedCity    String  @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  compensations Compensation[]
+
+  @@unique([normalizedCountry, normalizedRegion, normalizedCity])
+  @@index([normalizedCountry])
+  @@map("locations")
+}
+
+/// The core compensation observation. Components are stored separately
+/// (never only the total) and totalCompensation is always server-calculated.
+///
+/// `fingerprint` is a deterministic SHA-256 hash of the normalized
+/// identifying fields (see DuplicateDetectionService) and carries a unique
+/// database constraint — duplicate detection is enforced at the DB level,
+/// not only in application code.
+model Compensation {
+  id String @id @default(cuid())
+
+  companyId  String
+  roleId     String
+  levelId    String
+  locationId String
+
+  currency String
+
+  baseSalary        Decimal @db.Decimal(14, 2)
+  bonus             Decimal @default(0) @db.Decimal(14, 2)
+  stock             Decimal @default(0) @db.Decimal(14, 2)
+  totalCompensation Decimal @db.Decimal(14, 2)
+
+  experienceYears Float?
+
+  source    String  @default("synthetic")
+  sourceUrl String?
+
+  reportedAt DateTime @default(now())
+
+  fingerprint String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  role     Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  level    Level    @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@index([roleId])
+  @@index([levelId])
+  @@index([locationId])
+  @@index([currency])
+  @@index([totalCompensation])
+  @@index([baseSalary])
+  @@index([companyId, roleId, levelId, locationId])
+  @@map("compensations")
+}

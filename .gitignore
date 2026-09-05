@@ -11,3 +11,6 @@ coverage/
 .env.test
 .DS_Store
 apps/api/generated/
+promp.md
+engineering-PRD.md
+task.md

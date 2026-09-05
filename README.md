@@ -77,9 +77,13 @@ database (e.g. `createdb compensation_intelligence`).
 
 ### 3. Run migrations and seed synthetic data
 
+Run these from the **repo root** (they already target `apps/api` internally — do not
+add `--workspace=apps/api` yourself, that double-scopes it and npm won't find the
+script):
+
 ```bash
-npm run db:migrate --workspace=apps/api   # applies prisma/migrations, generates client
-npm run db:seed --workspace=apps/api      # loads ~350 synthetic compensation records
+npm run db:migrate   # applies prisma/migrations, generates client
+npm run db:seed      # loads ~350 synthetic compensation records
 ```
 
 The seed script targets 20+ companies, 12 roles, 100+ company-scoped levels, 14
@@ -88,9 +92,11 @@ minimum data requirements.
 
 ### 4. Run the apps
 
+Also from the repo root, in two separate terminals:
+
 ```bash
-npm run dev:api --workspace=apps/api   # http://localhost:4000/api/v1
-npm run dev:web --workspace=apps/web   # http://localhost:3000
+npm run dev:api   # http://localhost:4000/api/v1
+npm run dev:web   # http://localhost:3000
 ```
 
 API docs (Swagger): `http://localhost:4000/api/docs`
@@ -130,7 +136,7 @@ Full request/response schemas: `/api/docs`.
 ## Testing
 
 ```bash
-npm run test:api --workspace=apps/api        # unit tests (normalization, calculation, duplicate detection)
+npm run test:api   # from repo root — unit tests (normalization, calculation, duplicate detection)
 cd apps/api && npx jest --config ./test/jest-e2e.json   # integration tests against a dedicated test DB
 ```
 
